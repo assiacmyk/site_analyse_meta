@@ -1,0 +1,182 @@
+/* ===== Général (Police, corps, titres) ===== */
+body {
+  font-family: 'Segoe UI', sans-serif;
+  font-size: 17px;
+  line-height: 1.7;
+  background-color: #f0f6ff; /* fond bleu clair */
+  color: #1a1a1a;
+}
+
+/* Titres */
+h1, h2, h3, h4 {
+  font-weight: bold;
+  color: #0a2540;
+}
+h1 {
+  font-size: 2.2em;
+}
+h2 {
+  font-size: 1.8em;
+}
+h3 {
+  font-size: 1.4em;
+  border-left: 4px solid #2c7be5;
+  padding-left: 10px;
+  margin-top: 30px;
+}
+
+/* ===== Section Hero (titre principal en haut) ===== */
+.hero {
+  background-color: #2c7be5;
+  color: white;
+  padding: 4em 2em;
+  text-align: center;
+  border-radius: 10px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+}
+.hero h1 {
+  font-size: 2.5em;
+  margin-bottom: 10px;
+}
+.hero h2 {
+  font-size: 1.4em;
+  font-weight: 400;
+}
+.hero h3 {
+  font-size: 1.1em;
+  font-weight: 300;
+}
+
+/* ===== Sommaire personnalisé (clicable) ===== */
+.toc-style {
+  background-color: #ffffff;
+  color: #333;
+  border-left: 4px solid #2c7be5;
+  padding: 1rem 1.5rem;
+  margin: 2rem 0;
+  border-radius: 12px;
+  font-size: 1rem;
+  line-height: 1.7;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.toc-style a {
+  color: #2c7be5;
+  text-decoration: none;
+  font-weight: 500;
+}
+.toc-style a:hover {
+  text-decoration: underline;
+}
+
+/* ===== Tableaux ===== */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 2em 0;
+}
+th {
+  background: #2c7be5;
+  color: white;
+  padding: 10px;
+}
+td, th {
+  border: 1px solid #ccc;
+  padding: 8px;
+}
+
+/* ===== Bloc citations ===== */
+blockquote {
+  background: #e9f0fb;
+  border-left: 6px solid #2c7be5;
+  padding: 15px 20px;
+  font-style: italic;
+  color: #333;
+  margin: 1.5em 0;
+}
+
+/* ===== Sidebar : supprimer "On this page" ===== */
+nav.sidebar nav[role="doc-toc"] h2 {
+  display: none;
+}
+
+
+.flip-card {
+  background-color: transparent;
+  width: 300px;
+  height: 200px;
+  perspective: 1000px;
+  position: fixed;
+  left: 20px;
+  top: 250px;
+  z-index: 1000;
+}
+
+.flip-card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.8s;
+  transform-style: preserve-3d;
+}
+
+.flip-card:hover .flip-card-inner {
+  transform: rotateY(180deg);
+}
+
+.flip-card-front, .flip-card-back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  padding: 15px;
+  background-color: white;
+}
+
+.flip-card-back {
+  transform: rotateY(180deg);
+}
+
+.flip-card {
+  background-color: transparent;
+  width: 300px;
+  height: 200px;
+  perspective: 1000px;
+  margin: 20px auto;
+}
+
+.flip-card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.6s;
+  transform-style: preserve-3d;
+}
+
+.flip-card:hover .flip-card-inner {
+  transform: rotateY(180deg);
+}
+
+.flip-card-front, .flip-card-back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  border: 1px solid #ccc;
+  border-radius: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #3498db;
+  color: white;
+  font-size: 20px;
+  padding: 20px;
+  text-align: center;
+}
+
+.flip-card-back {
+  transform: rotateY(180deg);
+  background-color: #2980b9;
+}
