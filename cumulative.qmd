@@ -1,0 +1,268 @@
+---
+title: "Méta-Analyses Cumulatives"
+author: "Assia Aouimeur"
+date: "2025-04-28"
+format:
+  html:
+    toc: true
+    code-fold: true
+    theme:
+      light: cosmo
+      dark: darkly
+    css: styles.css
+---
+
+# Méta-Analyse Cumulative
+
+::: {.hero .center style="background-color:#3498db; color:white; padding:3em; border-radius:10px;"}
+## **Exploration des méta-analyses cumulatives**
+### Analyse progressive de l'accumulation des données cliniques
+:::
+
+## Introduction
+
+La méta-analyse cumulative consiste à observer comment les résultats globaux évoluent au fur et à mesure de l'ajout progressif des études dans une méta-analyse. Cela permet d'évaluer la stabilité et la robustesse des résultats au fil du temps.
+
+Nous allons reproduire et visualiser une méta-analyse cumulative à partir des données Cochrane.
+
+---
+
+# Chargement des données
+
+```{r Chargement 2 données}
+# Charger les packages
+library(meta)
+library(dplyr)
+library(ggplot2)
+
+overall <- read.csv("C:/Users/Aouimeur/OneDrive - Université de Paris/Documents/meta-analyses-site/data_source/overall-estimates-and-settings.csv")
+data_rows <- read.csv("C:/Users/Aouimeur/OneDrive - Université de Paris/Documents/meta-analyses-site/data_source/data-rows.csv")
+```
+
+
+## ️ Préparation des méta-analyses à inclure
+
+::: {.card style="background-color: #e9f5ff; border-left: 6px solid #2c7be5; padding: 1.5em; margin-bottom: 2em;"}
+
+Nous filtrons et préparons les données **avant d’effectuer l’analyse cumulative**, en suivant une méthodologie rigoureuse :
+
+- *Conserver uniquement les méta-analyses contenant au moins 6 études** (avec une année connue).
+-  **Croiser ces analyses** avec la base principale `overall-estimates-and-settings`.
+-  **Sélectionner aléatoirement jusqu’à 100 méta-analyses** pour alléger les calculs.
+-  **Appliquer une méta-analyse cumulative** sur chaque sélection :
+  - en utilisant automatiquement la **méthode statistique** indiquée (`MH`, `IV`, `PETO`) ;
+  - et en respectant le **modèle d’effet** (fixe ou aléatoire) mentionné dans les données.
+
+::: 
+```{r selectmeta}
+library(meta)
+library(dplyr)
+
+# Étape 1 : filtrer les triplets ayant au moins 6 études dans data_rows
+meta_valides <- data_rows %>%
+  filter(!is.na(Study.year)) %>%
+  group_by(cochrane_IDs, Analysis.group, Analysis.number) %>%
+  tally(name = "n_etudes") %>%
+  filter(n_etudes >= 6)
+
+# Étape 2 : croiser avec overall
+overall_filtré <- overall %>%
+  inner_join(meta_valides, by = c("cochrane_IDs", "Analysis.group", "Analysis.number"))
+
+# Étape 3 : prendre un échantillon de 100 (s'il y en a assez)
+set.seed(123)
+meta_extraits <- overall_filtré %>%
+  filter(Effect.measure %in% c("Risk Ratio", "Odds Ratio")) %>%
+  slice_sample(n = min(100, nrow(.)))
+
+# Étape 4 : fonction pour la méta-analyse cumulative
+faire_cumulee <- function(meta) {
+  cochrane_id <- meta[[1, "cochrane_IDs"]]
+  group <- meta[[1, "Analysis.group"]]
+  number <- meta[[1, "Analysis.number"]]
+  effet <- meta[[1, "Effect.measure"]]
+  modele <- meta[[1, "Analysis.model"]]
+  methode <- meta[[1, "Statistical.method"]]
+
+  if (is.na(methode) || is.na(modele)) return(NULL)
+
+  method_final <- dplyr::case_when(
+    methode == "MH" ~ "MH",
+    methode == "IV" ~ "Inverse",
+    methode == "PETO" ~ "Peto",
+    TRUE ~ NA_character_
+  )
+  if (is.na(method_final)) return(NULL)
+
+  random_final <- modele == "Random effects"
+
+  etudes <- data_rows %>%
+    filter(cochrane_IDs == cochrane_id,
+           Analysis.group == group,
+           Analysis.number == number,
+           !is.na(Study.year)) %>%
+    arrange(Study.year)
+
+  if (nrow(etudes) <= 1) return(NULL)
+
+  metacum(
+    metabin(
+      event.e = etudes$Experimental.cases,
+      n.e = etudes$Experimental.N,
+      event.c = etudes$Control.cases,
+      n.c = etudes$Control.N,
+      studlab = etudes$Study,
+      sm = ifelse(effet == "Risk Ratio", "RR", "OR"),
+      method = method_final,
+      random = random_final
+    ),
+    sortvar = etudes$Study.year
+  )
+}
+
+# Étape 5 : appliquer sur toutes les méta-analyses sélectionnées
+resultats_cumulatifs <- lapply(split(meta_extraits, seq(nrow(meta_extraits))), function(meta) {
+  tryCatch({
+    faire_cumulee(meta)
+  }, error = function(e) {
+    message("Erreur pour une méta-analyse : ", e$message)
+    return(NULL)
+  })
+})
+```
+##  Visualisation d'une méta-analyse cumulative
+
+::: {.card style="background-color: #f9f9f9; border-left: 6px solid #5dade2; padding: 1.5em; margin-bottom: 2em;"}
+
+Le graphique ci-dessous représente une **méta-analyse cumulative**, c’est-à-dire l’évolution de l’effet global (**Odds Ratio**) à mesure que de nouvelles études sont ajoutées chronologiquement :
+
+- Chaque ligne du graphique correspond à **l’ajout d’une étude** (ex. : *Adding Hill 2011 (k=1)*).
+- L’axe horizontal représente l’**effet global cumulatif** avec son **intervalle de confiance à 95%**.
+- Plus la courbe reste stable, plus cela indique une **robustesse** des résultats face à l’ajout de nouvelles données.
+- Le modèle utilisé ici est un **modèle à effets aléatoires** (`random = TRUE`), ce qui tient compte de l’hétérogénéité entre les études.
+
+Ce type de graphique est essentiel pour juger de la **fiabilité progressive** des conclusions tirées par la méta-analyse.
+
+:::
+
+
+```{r visu}
+
+# Affiche le graph de la premiere meta analyse
+forest(resultats_cumulatifs[[1]],
+       xlab = "Effet global cumulatif",
+       comb.fixed = FALSE,
+       comb.random = TRUE)
+
+```
+
+# Export CSV 1 : Toutes les analyses cumulatives (complet)
+
+```{r lefinal}
+# Stockage
+liste_resultats <- list()
+
+# Boucle
+for (i in seq_along(resultats_cumulatifs)) {
+  resultat_cum <- resultats_cumulatifs[[i]]
+  if (is.null(resultat_cum)) next
+  
+  meta_info <- meta_extraits[i, ]
+  
+  tableau_meta <- tibble(
+    cochrane_ID = meta_info$cochrane_IDs,
+    Analysis.group = meta_info$Analysis.group,
+    Analysis.number = meta_info$Analysis.number,
+    StudyName = resultat_cum$studlab,
+    Mean_cumulatif = resultat_cum$TE,
+    CI_inf_cumulatif = resultat_cum$lower,
+    CI_sup_cumulatif = resultat_cum$upper,
+    Tau2_cumulatif = resultat_cum$tau2,
+    I2_cumulatif = resultat_cum$I2,
+    Pval_cumulatif = resultat_cum$pval,
+    Zscore_cumulatif = resultat_cum$TE / resultat_cum$seTE,
+    nb_studies_included = as.integer(gsub(".*\\(k=(\\d+)\\).*", "\\1", resultat_cum$studlab))
+  )
+  
+  liste_resultats[[i]] <- tableau_meta
+}
+
+# Fusion résultat
+df_final <- bind_rows(liste_resultats)
+
+#suppression NA ou "Pooled estimate"
+df_final <- df_final %>%
+  filter(
+    !(is.na(Mean_cumulatif) & is.na(CI_inf_cumulatif) & is.na(CI_sup_cumulatif) &
+      is.na(Tau2_cumulatif) & is.na(I2_cumulatif) & is.na(Pval_cumulatif) & is.na(Zscore_cumulatif)),
+    !grepl("Pooled estimate", StudyName)
+  )
+
+# Export en CSV
+write.csv(df_final, "rresultats_cumules.csv", row.names = FALSE)
+```
+
+
+# Export CSV 2 : Une seule ligne par année (la dernière étude)
+
+```{r test2}
+# Stockage
+liste_resultats <- list()
+
+# Boucle sur chaque méta-analyse
+for (i in seq_along(resultats_cumulatifs)) {
+  resultat_cum <- resultats_cumulatifs[[i]]
+  if (is.null(resultat_cum)) next
+  
+  meta_info <- meta_extraits[i, ]
+
+  # Récupérer les années d’études associées
+  etudes_orig <- data_rows %>%
+    filter(cochrane_IDs == meta_info$cochrane_IDs,
+           Analysis.group == meta_info$Analysis.group,
+           Analysis.number == meta_info$Analysis.number,
+           !is.na(Study.year)) %>%
+    arrange(Study.year)
+  
+  # Créer le tableau cumulé avec les années
+  tableau_meta <- tibble(
+    cochrane_ID = meta_info$cochrane_IDs,
+    Analysis.group = meta_info$Analysis.group,
+    Analysis.number = meta_info$Analysis.number,
+    StudyName = resultat_cum$studlab,
+    Mean_cumulatif = resultat_cum$TE,
+    CI_inf_cumulatif = resultat_cum$lower,
+    CI_sup_cumulatif = resultat_cum$upper,
+    Tau2_cumulatif = resultat_cum$tau2,
+    I2_cumulatif = resultat_cum$I2,
+    Pval_cumulatif = resultat_cum$pval,
+    Zscore_cumulatif = resultat_cum$TE / resultat_cum$seTE,
+    nb_studies_included = as.integer(gsub(".*\\(k=(\\d+)\\).*", "\\1", resultat_cum$studlab)),
+    Study.year = etudes_orig$Study.year[1:length(resultat_cum$TE)]
+  )
+
+  liste_resultats[[i]] <- tableau_meta
+}
+
+# Fusionner tous les résultats
+df_total <- bind_rows(liste_resultats)
+
+# Nettoyage des lignes inutiles
+df_total <- df_total %>%
+  filter(
+    !(is.na(Mean_cumulatif) & is.na(CI_inf_cumulatif) & is.na(CI_sup_cumulatif) &
+      is.na(Tau2_cumulatif) & is.na(I2_cumulatif) & is.na(Pval_cumulatif) & is.na(Zscore_cumulatif)),
+    !grepl("Pooled estimate", StudyName)
+  )
+
+# Conserver uniquement la dernière étude par année dans chaque méta-analyse
+df_final_filtré <- df_total %>%
+  group_by(cochrane_ID, Analysis.group, Analysis.number, Study.year) %>%
+  slice_tail(n = 1) %>%
+  ungroup() %>%
+  arrange(cochrane_ID, Analysis.group, Analysis.number, Study.year)
+
+# Export final
+write.csv(df_final_filtré, "resultats_cumules_paranneeZA.csv", row.names = FALSE)
+```
+
